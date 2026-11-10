@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>TalkNest</title>
+<link rel="manifest" href="data:application/json,{}">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+body{background:#0b0f14;color:#fff;overflow:hidden;height:100vh}
+button{cursor:pointer;border:none;outline:none}
+input{outline:none}
+/* Hide Netlify Badge */
+div[style*="Powered by"],a[href*="netlify"],iframe[src*="netlify"]{display:none!important}
+#netlify-badge,.netlify-badge{display:none!important}
+/* Splash */
+#splash{position:fixed;inset:0;background:#0b0f14;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center}
+#splash img{width:110px;height:110px;border-radius:28px;object-fit:cover}
+#splash h1{font-size:32px;letter-spacing:3px;margin-top:14px}
+#splash p{color:#8b98a5;font-size:13px;margin-top:4px}
+#splash span{font-size:11px;color:#25D366;margin-top:16px}
+/* Auth */
+#auth{position:fixed;inset:0;background:#0b0f14;z-index:9998;display:none;flex-direction:column;align-items:center;justify-content:center;padding:24px}
+#auth h2{font-size:26px;margin-bottom:6px}
+#auth p{color:#8b98a5;font-size:13px;margin-bottom:20px;text-align:center}
+#auth input{width:100%;max-width:340px;padding:14px;border-radius:12px;border:1px solid #2a3440;background:#111820;color:#fff;font-size:15px;margin-bottom:10px}
+#auth button{width:100%;max-width:340px;padding:14px;border-radius:12px;background:#25D366;color:#000;font-weight:700;font-size:15px;margin-top:6px}
+/* App Layout */
+#app{display:none;height:100vh;flex-direction:column}
+header{height:58px;background:#111820;display:flex;align-items:center;justify-content:space-between;padding:0 14px;border-bottom:1px solid #1e2936}
+header .logo{display:flex;align-items:center;gap:8px;font-weight:800;letter-spacing:1px}
+header .logo img{width:32px;height:32px;border-radius:8px}
+header .icons{display:flex;gap:14px;font-size:20px}
+#tabs{display:flex;background:#111820;border-bottom:1px solid #1e2936}
+#tabs button{flex:1;padding:12px;background:none;color:#8b98a5;font-weight:600}
+#tabs button.active{color:#fff;border-bottom:2px solid #25D366}
+#content{flex:1;overflow-y:auto;padding-bottom:80px}
+.list-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid #16202b}
+.list-item:active{background:#141e2a}
+.avatar{width:48px;height:48px;border-radius:50%;background:#25D366;color:#000;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:18px;flex-shrink:0;overflow:hidden}
+.avatar img{width:100%;height:100%;object-fit:cover}
+.list-item .meta{flex:1;min-width:0}
+.list-item .meta b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.list-item .meta small{color:#8b98a5}
+.dot{width:10px;height:10px;border-radius:50%;background:#ff3b30}
+.dot.online{background:#25D366}
+.fab{position:fixed;bottom:84px;right:16px;width:56px;height:56px;border-radius:50%;background:#25D366;color:#000;font-size:26px;z-index:100}
+/* Chat */
+#chatView{position:fixed;inset:0;background:#0b0f14;z-index:1000;display:none;flex-direction:column}
+#chatHeader{height:58px;background:#111820;display:flex;align-items:center;gap:10px;padding:0 10px}
+#chatHeader button{background:none;color:#fff;font-size:20px}
+#chatBody{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:8px;background:#0e141b}
+.msg{max-width:78%;padding:9px 12px;border-radius:14px;font-size:14px;line-height:1.4;word-wrap:break-word}
+.msg.me{align-self:flex-end;background:#005c4b;color:#fff;border-bottom-right-radius:4px}
+.msg.other{align-self:flex-start;background:#1f2c34;border-bottom-left-radius:4px}
+.msg small{display:block;font-size:10px;opacity:.6;margin-top:4px;text-align:right}
+#chatInput{display:flex;gap:8px;padding:10px;background:#111820;align-items:center}
+#chatInput input{flex:1;padding:12px;border-radius:22px;border:none;background:#1f2c34;color:#fff}
+#chatInput button{width:44px;height:44px;border-radius:50%;background:#25D366;color:#000;font-size:18px}
+/* Call UI */
+#incomingBox{position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:5000;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:20px}
+#incomingBox h2{font-size:22px}
+#incomingBox p{color:#8b98a5}
+#incomingBox .row{display:flex;gap:16px;margin-top:10px}
+#incomingBox .row button{width:64px;height:64px;border-radius:50%;font-size:26px}
+#callBox{position:fixed;inset:0;background:#000;z-index:6000;display:none;flex-direction:column}
+#callBox video{width:100%;flex:1;object-fit:cover;background:#111}
+#callStatus{text-align:center;padding:12px;font-weight:700}
+#callBox .controls{display:flex;justify-content:center;gap:16px;padding:16px}
+#callBox .controls button{width:58px;height:58px;border-radius:50%;font-size:22px}
+#localVideo{position:absolute;top:70px;right:12px;width:110px;height:150px;border-radius:12px;object-fit:cover;border:2px solid #fff;display:none;z-index:10}
+.empty{padding:40px 20px;text-align:center;color:#8b98a5}
+.empty h3{color:#fff;margin-bottom:8px}
+</style>
+</head>
+<body>
+
+<!-- Splash -->
+<div id="splash">
+  <img src="logo.png" alt="TalkNest">
+  <h1>TALKNEST</h1>
+  <p>Chat, Call, Connect</p>
+  <span>Jr.c • TALKNEST</span>
+</div>
+
+<!-- Auth -->
+<div id="auth">
+  <h2>Welcome to TalkNest</h2>
+  <p>Enter your name and phone number to continue. OTP is sent once.</p>
+  <input id="regName" placeholder="Your Name">
+  <input id="regPhone" placeholder="Phone Number e.g. 0916864415" inputmode="numeric">
+  <input id="regOtp" placeholder="Enter OTP (use 1234 for demo)" inputmode="numeric">
+  <button onclick="register()">Continue</button>
+  <p style="margin-top:14px;font-size:12px">By continuing you agree to TalkNest Terms.</p>
+</div>
+
+<!-- Main App -->
+<div id="app">
+  <header>
+    <div class="logo"><img src="logo.png"> TALKNEST</div>
+    <div class="icons"><span onclick="showTab('calls')">📞</span><span onclick="alert('Settings coming soon')">⚙️</span></div>
+  </header>
+  <div id="tabs">
+    <button id="tab-chats" class="active" onclick="showTab('chats')">Chats</button>
+    <button id="tab-calls" onclick="showTab('calls')">Calls</button>
+    <button id="tab-people" onclick="showTab('people')">People</button>
+  </div>
+  <div id="content"></div>
+  <button class="fab" onclick="showTab('people')">+</button>
+</div>
+
+<!-- Chat View -->
+<div id="chatView">
+  <div id="chatHeader">
+    <button onclick="closeChat()">←</button>
+    <div class="avatar" id="chatAvatar">?</div>
+    <div style="flex:1"><b id="chatName">Name</b><br><small id="chatStatus" style="color:#25D366">Online</small></div>
+    <button onclick="startCall(false)">📞</button>
+    <button onclick="startCall(true)">📹</button>
+  </div>
+  <div id="chatBody"></div>
+  <div id="chatInput">
+    <input id="msgInput" placeholder="Type a message..." onkeypress="if(event.key==='Enter') sendMsg()">
+    <button onclick="sendMsg()">➤</button>
+  </div>
+</div>
+
+<!-- Incoming Call -->
+<div id="incomingBox">
+  <div style="font-size:60px">📞</div>
+  <h2 id="incomingText">Incoming Call</h2>
+  <p id="incomingType">Voice Call</p>
+  <div class="row">
+    <button style="background:#ff3b30" onclick="declineCall()">✖</button>
+    <button style="background:#25D366" onclick="answerCall()">✔</button>
+  </div>
+</div>
+
+<!-- Active Call -->
+<div id="callBox">
+  <video id="localVideo" autoplay muted playsinline></video>
+  <video id="remoteVideo" autoplay playsinline></video>
+  <div id="callStatus">Calling...</div>
+  <div class="controls">
+    <button style="background:#333;color:#fff" onclick="toggleMute()">🎤</button>
+    <button style="background:#ff3b30;color:#fff" onclick="endCall()">✖</button>
+    <button style="background:#333;color:#fff" onclick="toggleSpeaker()">🔊</button>
+  </div>
+</div>
+
+<script>
+// ===== FIREBASE CONFIG - REPLACE WITH YOUR OWN =====
+const firebaseConfig = { apiKey:"YOUR_API_KEY", authDomain:"YOUR_PROJECT.firebaseapp.com", databaseURL:"https://YOUR_PROJECT-default-rtdb.firebaseio.com", projectId:"YOUR_PROJECT", storageBucket:"YOUR_PROJECT.appspot.com", messagingSenderId:"0000000000", appId:"1:0000000000:web:0000000000" };
+try{ firebase.initializeApp(firebaseConfig); }catch(e){}
+const db = firebase.database ? firebase.database() : null;
+
+let me = localStorage.getItem('talknest_name') || "";
+let myNum = localStorage.getItem('talknest_phone') || "";
+let currentChat = null;
+let currentChatName = "";
+let peer = null;
+let currentCall = null;
+let incomingCall = null;
+let localStream = null;
+let isVideoCall = false;
+let isMuted = false;
+let currentTab = 'chats';
+
+function isOnline(){ return navigator.onLine; }
+
+// ===== SPLASH + AUTH =====
+window.onload = () => {
+  setTimeout(()=>{
+    document.getElementById('splash').style.display='none';
+    if(me && myNum){ enterApp(); } else { document.getElementById('auth').style.display='flex'; }
+  }, 1800);
+};
+function register(){
+  const n = document.getElementById('regName').value.trim();
+  const p = document.getElementById('regPhone').value.trim();
+  const o = document.getElementById('regOtp').value.trim();
+  if(!n || !p) return alert('Please enter name and phone number');
+  if(o !== '1234') return alert('Invalid OTP. Use 1234 for demo.');
+  me = n; myNum = p;
+  localStorage.setItem('talknest_name', n);
+  localStorage.setItem('talknest_phone', p);
+  document.getElementById('auth').style.display='none';
+  enterApp();
+}
+function enterApp(){
+  document.getElementById('app').style.display='flex';
+  if(db){
+    db.ref('users/' + cleanNum(myNum)).set({ name: me, phone: myNum, lastSeen: Date.now(), online: true });
+    db.ref('users/' + cleanNum(myNum) + '/online').onDisconnect().set(false);
+  }
+  initPeer();
+  showTab('chats');
+  setInterval(()=>{ if(db) db.ref('users/' + cleanNum(myNum) + '/lastSeen').set(Date.now()); }, 30000);
+}
+
+// ===== TABS =====
+function showTab(t){
+  currentTab = t;
+  document.querySelectorAll('#tabs button').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+t).classList.add('active');
+  const c = document.getElementById('content');
+  if(t==='chats') renderChats();
+  if(t==='people') renderPeople();
+  if(t==='calls') renderCalls();
+}
+function renderChats(){
+  const c = document.getElementById('content');
+  if(!db){ c.innerHTML = '<div class="empty"><h3>No chats yet</h3><p>Go to People and start a chat</p></div>'; return; }
+  db.ref('users').once('value', snap=>{
+    let html = '';
+    snap.forEach(child=>{
+      const u = child.val();
+      if(u.phone === myNum) return;
+      html += `<div class="list-item" onclick="openChat('${u.phone}','${u.name}')">
+        <div class="avatar">${u.name.charAt(0).toUpperCase()}</div>
+        <div class="meta"><b>${u.name}</b><small>${u.phone} • Tap to chat</small></div>
+        <div class="dot ${u.online ? 'online' : ''}"></div></div>`;
+    });
+    c.innerHTML = html || '<div class="empty"><h3>No people yet</h3><p>Invite friends to join TalkNest</p></div>';
+  });
+}
+function renderPeople(){
+  const c = document.getElementById('content');
+  if(!db){ c.innerHTML = '<div class="empty"><h3>People</h3><p>Connect to Firebase to see people</p></div>'; return; }
+  db.ref('users').once('value', snap=>{
+    let html = '';
+    snap.forEach(child=>{
+      const u = child.val();
+      if(u.phone === myNum) return;
+      html += `<div class="list-item" onclick="openChat('${u.phone}','${u.name}')">
+        <div class="avatar">${u.name.charAt(0).toUpperCase()}</div>
+        <div class="meta"><b>${u.name}</b><small>${u.phone}</small></div>
+        <button style="padding:8px 14px;border-radius:20px;background:#25D366;font-weight:700" onclick="event.stopPropagation();openChat('${u.phone}','${u.name}')">Chat</button></div>`;
+    });
+    c.innerHTML = html || '<div class="empty"><h3>No people found</h3></div>';
+  });
+}
+function renderCalls(){
+  const logs = JSON.parse(localStorage.getItem('talknest_calls') || '[]');
+  const c = document.getElementById('content');
+  if(!logs.length){ c.innerHTML = '<div class="empty"><h3>No calls yet</h3><p>Your voice and video calls will appear here</p></div>'; return; }
+  c.innerHTML = logs.map(l=>`<div class="list-item"><div class="avatar">${l.type==='Video'?'📹':'📞'}</div><div class="meta"><b>${l.name}</b><small>${l.type} • ${l.dir} • ${l.time}</small></div></div>`).join('');
+}
+function addCallLog(phone, type, dir){
+  const logs = JSON.parse(localStorage.getItem('talknest_calls') || '[]');
+  logs.unshift({ name: phone, type, dir, time: new Date().toLocaleString() });
+  localStorage.setItem('talknest_calls', JSON.stringify(logs.slice(0,50)));
+}
+
+// ===== CHAT =====
+function openChat(phone, name){
+  currentChat = phone; currentChatName = name;
+  document.getElementById('chatName').innerText = name;
+  document.getElementById('chatAvatar').innerText = name.charAt(0).toUpperCase();
+  document.getElementById('chatView').style.display='flex';
+  loadMessages();
+}
+function closeChat(){ document.getElementById('chatView').style.display='none'; currentChat=null; }
+function chatId(a,b){ return [cleanNum(a), cleanNum(b)].sort().join('_'); }
+function loadMessages(){
+  const body = document.getElementById('chatBody');
+  if(!db){ body.innerHTML='<div class="empty">Connect Firebase to enable chat</div>'; return; }
+  const id = chatId(myNum, currentChat);
+  db.ref('chats/'+id).off();
+  db.ref('chats/'+id).limitToLast(100).on('value', snap=>{
+    body.innerHTML='';
+    snap.forEach(child=>{
+      const m = child.val();
+      const div = document.createElement('div');
+      div.className = 'msg ' + (m.from===myNum ? 'me':'other');
+      div.innerHTML = `${escapeHtml(m.text)}<small>${new Date(m.time).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</small>`;
+      body.appendChild(div);
+    });
+    body.scrollTop = body.scrollHeight;
+  });
+}
+function sendMsg(){
+  const inp = document.getElementById('msgInput');
+  const text = inp.value.trim();
+  if(!text || !currentChat) return;
+  if(!db) return alert('Connect Firebase first');
+  db.ref('chats/'+chatId(myNum, currentChat)).push({ from: myNum, to: currentChat, text, time: Date.now() });
+  inp.value='';
+}
+function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+// ===== CALL - FIXED VERSION =====
+function cleanNum(n){ return (n||"").toString().replace(/\D/g,"").replace(/^0/,"234"); }
+
+function initPeer(){
+  if(peer) try{ peer.destroy(); }catch(e){}
+  const myID = "talknest_" + cleanNum(myNum);
+  console.log("My Call ID:", myID);
+  try{
+    peer = new Peer(myID, {
+      host: '0.peerjs.com',
+      port: 443,
+      path: '/',
+      secure: true,
+      debug: 2,
+      config: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' },
+          { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' }
+        ]
+      }
+    });
+    peer.on('open', id => { console.log('Call Ready:', id); });
+    peer.on('call', call => {
+      incomingCall = call;
+      isVideoCall = call.metadata?.video || false;
+      document.getElementById('incomingText').innerText = 'Incoming Call from ' + (call.metadata?.from || call.peer);
+      document.getElementById('incomingType').innerText = isVideoCall ? 'Video Call' : 'Voice Call';
+      document.getElementById('incomingBox').style.display = 'flex';
+      setTimeout(()=>{ if(document.getElementById('incomingBox').style.display==='flex') document.getElementById('incomingBox').style.display='none'; }, 30000);
+    });
+    peer.on('error', err => { console.log('Peer Error:', err.type); });
+    peer.on('disconnected', ()=>{ try{ peer.reconnect(); }catch(e){} });
+  }catch(e){ console.log(e); }
+}
+
+async function getMedia(video){
+  try{
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: video ? { width:640, height:480, facingMode:'user' } : false });
+    return stream;
+  }catch(e){ alert('Please allow Microphone / Camera permission'); return null; }
+}
+
+window.startCall = async(video) => {
+  if(!isOnline()) return alert('No Data - Call needs internet');
+  if(!currentChat) return alert('Open a chat first');
+  isVideoCall = video;
+  let stream = await getMedia(video);
+  if(!stream) return;
+  localStream = stream;
+  const targetID = "talknest_" + cleanNum(currentChat);
+  alert('Calling ' + currentChatName + '... Make sure they are Online and the App is open.');
+  document.getElementById('callBox').style.display = 'flex';
+  document.getElementById('callStatus').innerText = video ? 'Video Calling...' : 'Voice Calling...';
+  document.getElementById('localVideo').srcObject = stream;
+  document.getElementById('localVideo').style.display = video ? 'block' : 'none';
+  let call = peer.call(targetID, stream, { metadata: { video: video, from: me } });
+  currentCall = call;
+  call.on('stream', remote => {
+    document.getElementById('remoteVideo').srcObject = remote;
+    document.getElementById('callStatus').innerText = video ? 'On Video Call' : 'On Voice Call';
+  });
+  call.on('close', ()=>{ endCall(); });
+  call.on('error', ()=>{ endCall(); });
+  addCallLog(currentChatName, video ? 'Video' : 'Voice', 'Outgoing');
+};
+
+async function answerCall(){
+  document.getElementById('incomingBox').style.display='none';
+  let stream = await getMedia(isVideoCall);
+  if(!stream) return;
+  localStream = stream;
+  document.getElementById('callBox').style.display='flex';
+  document.getElementById('callStatus').innerText = isVideoCall ? 'On Video Call' : 'On Voice Call';
+  document.getElementById('localVideo').srcObject = stream;
+  document.getElementById('localVideo').style.display = isVideoCall ? 'block' : 'none';
+  incomingCall.answer(stream);
+  currentCall = incomingCall;
+  incomingCall.on('stream', remote => { document.getElementById('remoteVideo').srcObject = remote; });
+  incomingCall.on('close', ()=>{ endCall(); });
+  addCallLog(incomingCall.metadata?.from || 'Unknown', isVideoCall ? 'Video' : 'Voice', 'Incoming');
+}
+function declineCall(){
+  document.getElementById('incomingBox').style.display='none';
+  if(incomingCall) try{ incomingCall.close(); }catch(e){}
+  incomingCall = null;
+}
+function endCall(){
+  if(currentCall) try{ currentCall.close(); }catch(e){}
+  if(localStream) localStream.getTracks().forEach(t=>t.stop());
+  document.getElementById('callBox').style.display='none';
+  document.getElementById('incomingBox').style.display='none';
+  document.getElementById('remoteVideo').srcObject = null;
+  document.getElementById('localVideo').srcObject = null;
+  currentCall = null;
+}
+function toggleMute(){
+  if(!localStream) return;
+  isMuted = !isMuted;
+  localStream.getAudioTracks().forEach(t=>t.enabled = !isMuted);
+  alert(isMuted ? 'Muted' : 'Unmuted');
+}
+function toggleSpeaker(){ alert('Speaker toggled'); }
+</script>
+</body>
+  </html>
